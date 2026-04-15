@@ -9,10 +9,11 @@ use std::ffi::OsStr;
 use std::sync::{Arc, RwLock, RwLockReadGuard};
 use std::time::Duration;
 
-use constants::{DISCORD_PROCESS_NAMES, PROCESS_CPU_USAGE_THRESHHOLD};
 use itertools::Itertools;
 use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
 use tokio::time::Instant;
+
+use constants::{DISCORD_PROCESS_NAMES, PROCESS_CPU_USAGE_THRESHHOLD};
 
 struct AppState {
     system: Arc<RwLock<System>>,
@@ -125,7 +126,7 @@ async fn run(sys: System) -> Result<(), Box<dyn std::error::Error>> {
 
 #[tokio::main]
 async fn main() {
-    if (std::env::consts::OS != "linux" && std::env::consts::OS != "macos") {
+    if !matches!(std::env::consts::OS, "linux" | "macos") {
         eprintln!("Your current OS is not yet supported.");
         std::process::exit(1);
     }
