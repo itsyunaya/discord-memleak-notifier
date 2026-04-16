@@ -13,7 +13,8 @@ use itertools::Itertools;
 use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
 use tokio::time::Instant;
 
-use constants::{DISCORD_PROCESS_NAMES, PROCESS_CPU_USAGE_THRESHHOLD};
+use constants::{DISCORD_PROCESS_NAMES, PROCESS_CPU_USAGE_THRESHHOLD, CPU_CORES_LOGICAL};
+use crate::util::get_total_cpu_usage;
 
 struct AppState {
     system: Arc<RwLock<System>>,
@@ -59,7 +60,7 @@ impl AppState {
                 tokio::time::sleep(Duration::from_secs(180)).await;
                 let sys = system.read().expect("System lock poisoned");
                 let mut apps = AppState::get_active_discord_processes(sys);
-                let mut cache = cache.write().expect("System lock poisoned");
+                let mut cache = cache.write().expect("Cache lock poisoned");
                 cache.clear();
                 cache.append(&mut apps);
             }
@@ -67,13 +68,13 @@ impl AppState {
     }
 }
 
-async fn run(sys: System) -> Result<(), Box<dyn std::error::Error>> {
+async fn run(sys: System) {
     let mut state = AppState::new(sys);
 
     // initial cache population so the program doesn't have to wait for the updater
     {
         let sys = state.system.read().expect("System lock poisoned");
-        let mut cache = state.cache.write().expect("System lock poisoned");
+        let mut cache = state.cache.write().expect("Cache lock poisoned");
         cache.append(&mut AppState::get_active_discord_processes(sys));
     }
 
@@ -101,11 +102,11 @@ async fn run(sys: System) -> Result<(), Box<dyn std::error::Error>> {
                 ProcessRefreshKind::nothing().with_cpu(),
             );
 
-            let cache = state.cache.read().expect("System lock poisoned");
+            let cache = state.cache.read().expect("Cache lock poisoned");
             cache.iter().unique().for_each(|name| {
                 if let Some(proc) = sys
                     .processes_by_name(OsStr::new(name))
-                    .find(|x| x.cpu_usage() > PROCESS_CPU_USAGE_THRESHHOLD)
+                    .find(|x| get_total_cpu_usage(x) > PROCESS_CPU_USAGE_THRESHHOLD)
                 {
                     if !state.currently_leaking.contains_key(&proc.pid()) {
                         util::send_system_notif();
@@ -116,7 +117,7 @@ async fn run(sys: System) -> Result<(), Box<dyn std::error::Error>> {
         }
 
         // this might not be the most elegant solution, but it'll do the trick for now :p
-        state.currently_leaking.retain(|_pid, instant| {
+        state.currently_leaking.retain(|_, instant| {
             instant.elapsed() <= Duration::from_mins(10)
         });
 
@@ -134,5 +135,7 @@ async fn main() {
     let sys = System::new_all();
     tokio::time::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL).await;
 
-    run(sys).await.unwrap();
+    CPU_CORES_LOGICAL.set(sys.cpus().len() as f32).unwrap();
+
+    run(sys).await;
 }

@@ -1,6 +1,7 @@
+use std::sync::OnceLock;
 
-// change from 30 to actual memleak value later
-pub const PROCESS_CPU_USAGE_THRESHHOLD: f32 = 30f32;
+pub const PROCESS_CPU_USAGE_THRESHHOLD: f32 = 10f32;
+pub static CPU_CORES_LOGICAL: OnceLock<f32> = OnceLock::new();
 
 // in order: normal process, arch binary, canary client, vesktop (vencord)
 pub const DISCORD_PROCESS_NAMES: [&str; 4] = ["discord", "discord-bin", "discordcanary", "vesktop"];
