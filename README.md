@@ -28,17 +28,13 @@ cargo install --path .
 Add the repository to your flake inputs
 ```nix
 inputs = {
-    # ...
     dmn.url = "github:itsyunaya/discord-memleak-notifier";
-    # ...
 };
 ```
 Then in `configuration.nix`
 ```nix
 environment.systemPackages = [
-    # ...
-    inputs.dmn.packages.${pkgs.stdenv.hostPlatform.system}.dmn  
-    # ...
+    inputs.dmn.packages.${pkgs.stdenv.hostPlatform.system}.default
 ];
 ```
 

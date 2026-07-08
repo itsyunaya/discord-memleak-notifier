@@ -1,22 +1,16 @@
 {
 	description = "A simple program for Linux and macOS to detect Discord resource leaks";
 
-	inputs = {
-		nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-		crane.url = "github:ipetkov/crane";
-		flake-utils.url = "github:numtide/flake-utils";
-	};
+	inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
-	outputs = { self, nixpkgs, crane, flake-utils, ... }:
-		flake-utils.lib.eachDefaultSystem (system:
-		let
-			pkgs = nixpkgs.legacyPackages.${system};
-			craneLib = crane.mkLib pkgs;
+	outputs = { self, nixpkgs }: let
+		systems = [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" ];
+		forAllSystems = f: nixpkgs.lib.genAttrs systems f;
+	in {
+		packages = forAllSystems (sys: let
+			pkgs = nixpkgs.legacyPackages.${sys};
 		in {
-			packages.dmn = craneLib.buildPackage {
-				src = craneLib.cleanCargoSource ./.;
-		};
-
-		packages.default = self.packages.${system}.dmn;
-	});
+			default = pkgs.callPackage ./. { };
+		});
+	};
 }
